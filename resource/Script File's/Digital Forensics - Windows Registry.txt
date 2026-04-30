@@ -1,0 +1,223 @@
+Digital Forensics - Windows Registry Investigation & Information Gathering
+===========================================================================
+
+PHASE 1 - SYSTEM IDENTIFICATION
+---------------------------------
+Hostname
+  HKLM\SYSTEM\CurrentControlSet\Control\ComputerName\ComputerName
+  Value: ComputerName
+
+OS Version
+  HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion
+  Values: ProductName, CurrentVersion, CurrentBuild, InstallDate, RegisteredOwner
+
+Timezone
+  HKLM\SYSTEM\CurrentControlSet\Control\TimeZoneInformation
+  Value: TimeZoneKeyName
+
+Last Shutdown Time
+  HKLM\SYSTEM\CurrentControlSet\Control\Windows
+  Value: ShutdownTime (FILETIME format)
+
+Last Logged-On User
+  HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Authentication\LogonUI
+  Value: LastLoggedOnUser
+
+PHASE 2 - USER ACCOUNT INVESTIGATION
+--------------------------------------
+Local User Accounts
+  HKLM\SAM\SAM\Domains\Account\Users
+  -> Username, RID, last logon, login count, failed logins, NTLM hash
+
+User Profile List
+  HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList
+  -> SID to username mapping, profile path
+
+Auto-Login Credentials (cleartext risk)
+  HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon
+  Values: DefaultUserName, DefaultPassword, AutoAdminLogon
+
+Cached Domain Credentials
+  HKLM\SECURITY\Cache
+
+PHASE 3 - EXECUTION EVIDENCE
+------------------------------
+Programs Run (UserAssist - ROT13 encoded)
+  HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\UserAssist
+  -> Executed GUI apps, run count, last execution time
+
+Run MRU (commands typed in Run dialog)
+  HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\RunMRU
+
+AppCompatCache / Shimcache (system-wide execution)
+  HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\AppCompatCache
+  -> File path, last modified time (NOT last execution)
+
+Amcache.hve (SHA1 + metadata)
+  C:\Windows\AppCompat\Programs\Amcache.hve
+  Root\InventoryApplicationFile
+  -> SHA1, file path, PE info, publisher, link date
+
+Prefetch (execution timestamps)
+  C:\Windows\Prefetch\*.pf
+  -> 8 last run times, run count, files loaded
+
+BAM/DAM (Background Activity Monitor - Win10+)
+  HKLM\SYSTEM\CurrentControlSet\Services\bam\State\UserSettings\<SID>
+  -> Full path of executed binary, last execution timestamp
+
+PHASE 4 - PERSISTENCE INVESTIGATION
+--------------------------------------
+Run Keys (all users)
+  HKLM\Software\Microsoft\Windows\CurrentVersion\Run
+  HKLM\Software\Microsoft\Windows\CurrentVersion\RunOnce
+  HKCU\Software\Microsoft\Windows\CurrentVersion\Run
+  HKCU\Software\Microsoft\Windows\CurrentVersion\RunOnce
+
+Services (malware as service)
+  HKLM\SYSTEM\CurrentControlSet\Services\
+  Values: ImagePath, Start, Type, Description
+
+Scheduled Tasks (registry-side)
+  HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Schedule\TaskCache\Tasks
+  HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Schedule\TaskCache\Tree
+
+Winlogon Hijack
+  HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon
+  Values: Shell, Userinit (default: explorer.exe / userinit.exe)
+
+Image File Execution Options (debugger hijack)
+  HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\<binary>
+  Value: Debugger -> malicious path
+
+AppInit_DLLs (DLL injection)
+  HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Windows
+  Value: AppInit_DLLs
+
+Browser Helper Objects
+  HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Browser Helper Objects
+
+COM Hijacking
+  HKCU\Software\Classes\CLSID\
+  HKLM\Software\Classes\CLSID\
+
+PHASE 5 - FILE & DOCUMENT ACCESS
+-----------------------------------
+Recent Documents
+  HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\RecentDocs
+  -> Filenames accessed by extension/type
+
+Open/Save Dialog MRU
+  HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\ComDlg32\OpenSavePidlMRU
+  HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\ComDlg32\LastVisitedPidlMRU
+
+Typed Paths (Explorer address bar)
+  HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\TypedPaths
+
+ShellBags (folder access, even deleted folders)
+  HKCU\Software\Microsoft\Windows\Shell\BagMRU
+  HKCU\Software\Microsoft\Windows\Shell\Bags
+  HKCU\Software\Classes\Local Settings\Software\Microsoft\Windows\Shell\BagMRU (UsrClass.dat)
+
+Search History
+  HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\WordWheelQuery
+
+PHASE 6 - NETWORK INVESTIGATION
+---------------------------------
+Network Profiles (SSID, connection times)
+  HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\NetworkList\Profiles
+  HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\NetworkList\Signatures\Unmanaged
+
+TCP/IP Interface Config
+  HKLM\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces\<GUID>
+  Values: IPAddress, DhcpIPAddress, DhcpServer, NameServer
+
+RDP Connection History (attacker lateral movement)
+  HKCU\Software\Microsoft\Terminal Server Client\Servers
+  -> Remote hostnames/IPs connected to
+
+Shared Folders
+  HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Shares
+
+PHASE 7 - USB / REMOVABLE DEVICE FORENSICS
+--------------------------------------------
+USB Devices Ever Connected
+  HKLM\SYSTEM\CurrentControlSet\Enum\USBSTOR
+  -> DeviceType, VendorID, ProductID, SerialNumber, first/last connect
+
+USB Class
+  HKLM\SYSTEM\CurrentControlSet\Enum\USB
+
+Drive Letter & Volume Name
+  HKLM\SOFTWARE\Microsoft\Windows Portable Devices\Devices
+  HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\MountPoints2
+
+Last Write Time of USBSTOR key = last connection time
+
+PHASE 8 - INSTALLED SOFTWARE & UNINSTALL EVIDENCE
+---------------------------------------------------
+Installed Programs (64-bit)
+  HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall
+
+Installed Programs (32-bit on 64-bit OS)
+  HKLM\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall
+
+Per-User Installs
+  HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall
+
+Values to extract:
+  DisplayName, DisplayVersion, InstallDate, InstallLocation, Publisher
+
+PHASE 9 - BROWSER ARTIFACTS (Registry Side)
+---------------------------------------------
+Internet Explorer / Edge Legacy Typed URLs
+  HKCU\Software\Microsoft\Internet Explorer\TypedURLs
+
+IE Zone Settings
+  HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings\ZoneMap
+
+Chrome/Firefox stored in filesystem (not registry)
+  C:\Users\<user>\AppData\Local\Google\Chrome\User Data\Default\History
+
+PHASE 10 - ANTI-FORENSIC / EVASION DETECTION
+----------------------------------------------
+Disabled Event Logging
+  HKLM\SYSTEM\CurrentControlSet\Services\EventLog
+
+Disabled Windows Defender
+  HKLM\SOFTWARE\Policies\Microsoft\Windows Defender
+  Value: DisableAntiSpyware -> 1
+
+Firewall Disabled
+  HKLM\SYSTEM\CurrentControlSet\Services\SharedAccess\Parameters\FirewallPolicy
+
+LSA Protection / Credential Guard
+  HKLM\SYSTEM\CurrentControlSet\Control\Lsa
+  Values: RunAsPPL, LsaCfgFlags
+
+SafeBoot Modified (rootkit indicator)
+  HKLM\SYSTEM\CurrentControlSet\Control\SafeBoot\Minimal
+  HKLM\SYSTEM\CurrentControlSet\Control\SafeBoot\Network
+
+INVESTIGATION TOOLS
+---------------------
+RegRipper        : rip.pl -r <hive> -f <plugin>
+Registry Explorer: Offline hive browser (Eric Zimmerman)
+RECmd            : RECmd.exe -f <hive> --bn BatchExamples\Kroll_Batch.reb --csv C:\out
+AmcacheParser    : AmcacheParser.exe -f Amcache.hve --csv C:\out
+ShellBagsExplorer: GUI tool for ShellBag analysis
+AppCompatCacheParser : AppCompatCacheParser.exe -f SYSTEM --csv C:\out
+Volatility       : vol.py printkey -K "<key path>"
+
+HIVE FILE LOCATIONS QUICK REF
+-------------------------------
+SAM      -> C:\Windows\System32\config\SAM
+SECURITY -> C:\Windows\System32\config\SECURITY
+SOFTWARE -> C:\Windows\System32\config\SOFTWARE
+SYSTEM   -> C:\Windows\System32\config\SYSTEM
+DEFAULT  -> C:\Windows\System32\config\DEFAULT
+NTUSER   -> C:\Users\<username>\NTUSER.DAT
+UsrClass -> C:\Users\<username>\AppData\Local\Microsoft\Windows\UsrClass.dat
+Amcache  -> C:\Windows\AppCompat\Programs\Amcache.hve
+
+Author: m.manikandan | Digital Forensics - Windows Registry Investigation
